@@ -3,53 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chat Ultra Secure</title>
+    <title>Chat RYCL System</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: sans-serif; background: #0b141a; color: white; height: 100vh; display: flex; align-items: center; justify-content: center; }
         
-        /* Layar Verifikasi */
-        #auth-screen { background: #1f2c33; padding: 30px; border-radius: 20px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .input-group { margin-bottom: 20px; text-align: left; }
-        label { display: block; margin-bottom: 8px; font-size: 12px; color: #00a884; font-weight: bold; }
-        input[type="password"], input[type="file"] { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #2a3942; background: #2a3942; color: white; outline: none; }
-        .btn-entry { width: 100%; padding: 15px; background: #00a884; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        #auth-screen { background: #1f2c33; padding: 30px; border-radius: 20px; width: 90%; max-width: 350px; text-align: center; border: 1px solid #00a884; }
+        .file-label { display: block; background: #2a3942; border: 2px dashed #00a884; padding: 30px; border-radius: 10px; cursor: pointer; margin-bottom: 20px; }
+        input[type="file"] { display: none; }
         
-        /* App Chat (Sama seperti sebelumnya tapi background gelap) */
-        #app-content { display: none; width: 100%; height: 100vh; flex-direction: column; background: #0b141a; }
+        #app-content { display: none; width: 100%; height: 100vh; flex-direction: column; }
         #chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; }
-        .msg { padding: 10px; border-radius: 10px; max-width: 80%; font-size: 14px; color: #e9edef; }
+        .msg { padding: 10px; border-radius: 10px; max-width: 80%; font-size: 14px; position: relative; }
         .sent { align-self: flex-end; background: #005c4b; }
         .rcv { align-self: flex-start; background: #202c33; }
-        .sender-tag { font-size: 10px; color: #00a884; display: block; margin-bottom: 3px; }
+        .sender-tag { font-size: 10px; color: #00a884; display: block; margin-bottom: 3px; font-weight: bold; }
+        footer { padding: 10px; background: #202c33; display: flex; gap: 10px; }
+        footer input { flex:1; padding:12px; border-radius:20px; border:none; background:#2a3942; color:white; outline:none; }
     </style>
 </head>
 <body>
 
     <div id="auth-screen">
-        <h2 style="margin-bottom: 10px;">SECURE ACCESS</h2>
-        <p style="font-size: 12px; color: #8696a0; margin-bottom: 25px;">Masukkan PIN & File Kartu Akses (.rycl)</p>
+        <h3 style="margin-bottom: 10px;">RYCL CARD SYSTEM</h3>
+        <p style="font-size: 12px; color: #8696a0; margin-bottom: 20px;">Silahkan masukkan kartu akses (.rycl)</p>
         
-        <div class="input-group">
-            <label>PIN AKSES</label>
-            <input type="password" id="pin-field" placeholder="****">
-        </div>
-
-        <div class="input-group">
-            <label>UPLOAD FILE .RYCL</label>
-            <input type="file" id="file-field" accept=".rycl">
-        </div>
-
-        <button class="btn-entry" onclick="verifyAccess()">BUKA CHAT</button>
-        <div id="error-log" style="color: #f15c5c; font-size: 12px; margin-top: 15px;"></div>
+        <label class="file-label">
+            <span id="file-status">PILIH FILE</span>
+            <input type="file" id="file-key" accept=".rycl" onchange="processFile(this)">
+        </label>
+        
+        <div id="log" style="color: #ff5c5c; font-size: 12px;"></div>
     </div>
 
     <div id="app-content">
-        <header style="background:#202c33; padding:15px; border-bottom:1px solid #2a3942;">Chat Room (Encrypted)</header>
+        <header style="background:#202c33; padding:15px; border-bottom:1px solid #2a3942; text-align:center;">
+            USER: <span id="my-name-display" style="color:#00a884"></span>
+        </header>
         <div id="chat-box"></div>
-        <form id="send-form" style="padding:10px; display:flex; background:#202c33;">
-            <input type="text" id="msg-input" placeholder="Ketik pesan..." style="flex:1; padding:12px; border-radius:20px; border:none; background:#2a3942; color:white; outline:none;">
-            <button type="submit" style="background:none; border:none; color:#00a884; font-size:24px; margin-left:10px;">➤</button>
+        <form id="chat-form">
+            <footer>
+                <input type="text" id="msg-input" placeholder="Ketik pesan..." autocomplete="off" required>
+                <button type="submit" style="background:none; border:none; color:#00a884; font-size:24px;">➤</button>
+            </footer>
         </form>
     </div>
 
@@ -57,7 +53,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // CONFIG KAMU
         const firebaseConfig = {
             apiKey: "AIzaSyADYMbSdRittkSNkqN311M2V87u3EvRS7M",
             authDomain: "website-list-game-pesawat.firebaseapp.com",
@@ -72,53 +67,58 @@
         const db = getDatabase(app);
         const chatRef = ref(db, 'chats');
 
-        const PIN_SECRET = "120021";
-        const FILE_KEY_CONTENT = "TERBANG-TINGGI-77"; // Isi dalam file .rycl harus ini
+        let currentUser = "";
 
-        window.verifyAccess = async function() {
-            const pin = document.getElementById('pin-field').value;
-            const fileInput = document.getElementById('file-field');
-            const log = document.getElementById('error-log');
+        window.processFile = function(input) {
+            const file = input.files[0];
+            if (!file) return;
 
-            if (!fileInput.files[0]) {
-                log.innerText = "Mana file .rycl nya?";
-                return;
-            }
-
-            // Baca File .rycl
             const reader = new FileReader();
             reader.onload = function(e) {
-                const content = e.target.result.trim();
-                
-                if (pin === PIN_SECRET && content === FILE_KEY_CONTENT) {
-                    document.getElementById('auth-screen').style.display = 'none';
-                    document.getElementById('app-content').style.display = 'flex';
-                    startChat();
-                } else {
-                    log.innerText = "PIN atau Isi File SALAH!";
+                const text = e.target.result;
+                try {
+                    // LOGIKA PARSING .RYCL
+                    const lines = text.split('\n');
+                    const key = lines[0].trim(); // Baris 1: TERBANG-TINGGI-77
+                    
+                    // Baris 2 & 3: Ekstrak value di antara kutipan atau setelah titik dua
+                    const nameMatch = text.match(/name:\s*"(.*?)"/);
+                    const passMatch = text.match(/password:\s*(\d+)/);
+
+                    if (key === "TERBANG-TINGGI-77" && nameMatch && passMatch) {
+                        currentUser = nameMatch[1];
+                        document.getElementById('auth-screen').style.display = 'none';
+                        document.getElementById('app-content').style.display = 'flex';
+                        document.getElementById('my-name-display').innerText = currentUser;
+                        startChat();
+                    } else {
+                        document.getElementById('log').innerText = "Format File Tidak Valid!";
+                    }
+                } catch (err) {
+                    document.getElementById('log').innerText = "Gagal membaca file!";
                 }
             };
-            reader.readAsText(fileInput.files[0]);
+            reader.readAsText(file);
         };
 
         function startChat() {
-            const user = localStorage.getItem('chat_user') || prompt("Nama Samaran:") || "Ghost";
-            localStorage.setItem('chat_user', user);
-            
             const chatBox = document.getElementById('chat-box');
-            document.getElementById('send-form').onsubmit = (e) => {
+            document.getElementById('chat-form').onsubmit = (e) => {
                 e.preventDefault();
-                const msg = document.getElementById('msg-input').value;
-                if(!msg) return;
-                push(chatRef, { sender: user, text: msg });
-                document.getElementById('msg-input').value = "";
+                const input = document.getElementById('msg-input');
+                push(chatRef, {
+                    sender: currentUser,
+                    text: input.value,
+                    time: new Date().toLocaleTimeString()
+                });
+                input.value = "";
             };
 
             onValue(chatRef, (snap) => {
                 chatBox.innerHTML = "";
                 snap.forEach(c => {
                     const d = c.val();
-                    const isMe = d.sender === user;
+                    const isMe = d.sender === currentUser;
                     chatBox.insertAdjacentHTML('beforeend', `
                         <div class="msg ${isMe ? 'sent' : 'rcv'}">
                             <span class="sender-tag">${isMe ? 'Anda' : d.sender}</span>
@@ -132,4 +132,3 @@
     </script>
 </body>
 </html>
-
